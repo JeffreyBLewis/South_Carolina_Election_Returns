@@ -1,0 +1,55 @@
+---
+title: "South Carolina precinct-level election returns"
+author: "Jeff Lewis"
+date: "18 January 2022"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(targets)
+```
+
+[This is a preliminary work in progress. Use at your own risk.]
+
+## Overview
+
+This repository contains code to download and parse precinct-level election returns from the state of Georgia.  The code is written in [`R`](https://www.r-project.org/) and uses the [`targets`](https://books.ropensci.org/targets/) pipeline toolkit to manage the production of the data.
+
+The all of parsed and de-normalized data are contained in the file `csv/SC_precinct_level_election_returns.csv.gz` in this repository.
+
+The following two commands can be used to re-ingest and re-parse the original source XML files found on the Sourch Carolina Secretary of State's [webpages](https://www.scvotes.gov/election-results).
+
+```{r eval=FALSE}
+source("_targets.R")
+tar_make()
+```
+
+## Variables and unit of analysis
+
+The variables contained in the data are as follows:
+
+```{r echo=FALSE}
+tar_load(precinct_level_data)
+glimpse(precinct_level_data)
+```
+
+Each row shows the number votes cast in the given manner (election day, absenteee, etc) in the given precinct in the given contest for the given candidate.  In total, the data contain `r format(NROW(precinct_level_data), big.mark=",")` records across `r length(unique(precinct_level_data$election))` elections, `r format(length(unique(precinct_level_data$contest)), big.mark=",")` contests, and `r format(length(unique(paste(precinct_level_data$county, precinct_level_data$contest))), big.mark=",")` precincts.   
+
+Note that the variable with names that start with `VTR_` are drawn from the "voter type" data included in the source XML files and the variables with names that start with `VTOR_` are drawn from the "voter turnout" data included in the source XML files.  Those variables are *not* broken down by mode of voting.  For example, the variable `VTOR_ballots_cast_all_ways` includes the total of *all* ballots cast by any method in the given precinct in the given election and not just those ballots cast by the method indicated by the `vote_type` variable. 
+
+The variable `VTOR_total_voters` displays the total number of registered voters the given precinct at the time of given election.  The `timestamp` variable indicates the time at which reported tally of votes was recorded by the vote tabulation system. The `is_question` indicates whether the given contest was a ballot question (as opposed to the candidate election). 
+
+## Elections Covered
+
+The elections included in the dataset are the following:
+```{r echo=FALSE}
+precinct_level_data %>%
+  count(date, election) %>%
+  mutate(date =  strptime(date, "%m/%d/%Y")) %>%
+  rename(Date=date, Election=election, Records=n) %>%
+  arrange(desc(Date)) %>%
+  knitr::kable()
+```
+
